@@ -32,11 +32,13 @@ public class Condition2 {
 	public void sleep() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
 		
-		conditionLock.release();
 		
 		boolean intStatus = Machine.interrupt().disable();
 		
-		waitQueue.waitForAccess(KThread.currentThread());
+		waitQueue.waitForAccess(KThread.currentThread());//waitForAccess will check if interrupt is disabled
+		
+		conditionLock.release();//(if without interrupt disable)lock release should after adding to waitQueue because otherwise could switch to another thread
+		//and mix up the order in waitQueue
 		
 		KThread.sleep();
 		
@@ -81,8 +83,38 @@ public class Condition2 {
 		
 		Machine.interrupt().restore(intStatus);
 	}
+	private static class PingTest implements Runnable {
+		PingTest() {
+			
+		}
+		
+		public void run() {
+			for (int i = 0; i < 20; i++) {
+				cc.speak(i);
+				KThread.yield();
+			}
+		}
 
+	}
+
+	/**
+	 * Tests whether this module is working.
+	 */
+	public static void selfTest() {
+
+		new KThread(new PingTest()).setName("speaker1").fork();
+		new KThread(new PingTest()).setName("speaker2").fork();
+		for(int i = 0; i < 20; i++) {
+			cc.listen();
+			
+		}
+		for(int i = 0; i < 20; i++) {
+			cc.listen();
+		}
+		
+	}
 	private Lock conditionLock;
 	private ThreadQueue waitQueue = ThreadedKernel.scheduler
 			.newThreadQueue(false);
+	private static Communicator cc = new Communicator();
 }

@@ -9,6 +9,7 @@
 *.classpath
 *.project
 *.metadata
+*.class
 
 # Packages #
 ############

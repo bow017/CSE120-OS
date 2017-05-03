@@ -34,6 +34,7 @@ public class Communicator {
 		}
 		someoneIsSpeaking = true;
 		this.word = word;
+		System.out.println(KThread.currentThread().getName()+"speaks the word: "+word);
 		
 		//wake up a listener if they are waiting for someone to speak
 		condHasSpeaker.wake();
@@ -41,7 +42,6 @@ public class Communicator {
 		//wait until a listener has acknowledgement they have heard my word.
 		condAck.sleep();
 		
-		someoneIsSpeaking = false;
 		
 		conditionLock.release();
 		
@@ -66,8 +66,8 @@ public class Communicator {
 		}
 
 		int heardWord = this.word;
-		
-		//someoneIsSpeaking = false;
+		System.out.println("word is listened: "+word);
+		someoneIsSpeaking = false;//must put here, in case of multiple listeners
 		
 		//acknowledge to the speaker that you've heard them
 		condAck.wake();
@@ -78,9 +78,9 @@ public class Communicator {
 	}
 	
 	private static Lock conditionLock = new Lock();
-	private static Condition condNoSpeaker = new Condition(conditionLock);
-	private static Condition condHasSpeaker = new Condition(conditionLock);
-	private static Condition condAck = new Condition(conditionLock);
+	private static Condition2 condNoSpeaker = new Condition2(conditionLock);
+	private static Condition2 condHasSpeaker = new Condition2(conditionLock);
+	private static Condition2 condAck = new Condition2(conditionLock);
 	private static boolean someoneIsSpeaking = false;
 	private int word;
 }
