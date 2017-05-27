@@ -3,6 +3,7 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+import java.util.*;
 
 /**
  * A kernel that can support multiple user processes.
@@ -29,6 +30,13 @@ public class UserKernel extends ThreadedKernel {
 				exceptionHandler();
 			}
 		});
+		
+		//initialize freePages
+		pageLock = new Lock();
+		int physPages = Machine.processor().getNumPhysPages();
+		for(int i = 0; i < physPages; i++) {
+			freePages.add(new Integer(i));
+		}
 	}
 
 	/**
@@ -94,7 +102,9 @@ public class UserKernel extends ThreadedKernel {
 		super.run();
 
 		UserProcess process = UserProcess.newUserProcess();
-
+		
+		System.out.println("testing user process");
+		
 		String shellProgram = Machine.getShellProgramName();
 		Lib.assertTrue(process.execute(shellProgram, new String[] {}));
 
@@ -107,10 +117,37 @@ public class UserKernel extends ThreadedKernel {
 	public void terminate() {
 		super.terminate();
 	}
-
+	
+	//allocate physical page to user process
+	//@return the ppn of the allocated physical page or -1 if in error
+	public static int allocate() {
+		pageLock.acquire();
+		if(freePages.isEmpty()) {
+			return -1;
+		}
+		int ppn = freePages.removeFirst();
+		pageLock.release();
+		return ppn;
+	}
+	
+	public static void deallocate(int ppn) {
+		pageLock.acquire();
+		freePages.add(new Integer(ppn));
+		pageLock.release();
+		return;
+	}
+	
+	//don't initialize here, or will cause problem
+	private static Lock pageLock;	
+	
 	/** Globally accessible reference to the synchronized console. */
 	public static SynchConsole console;
 
+	//maintain free pages
+	public static LinkedList<Integer> freePages = new LinkedList<Integer>();
+	
 	// dummy variables to make javac smarter
 	private static Coff dummy1 = null;
+	
+	
 }

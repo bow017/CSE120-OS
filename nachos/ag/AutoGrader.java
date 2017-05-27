@@ -41,7 +41,7 @@ public class AutoGrader {
 		System.out.print("\n");
 
 		kernel = (Kernel) Lib
-				.constructObject(Config.getString("Kernel.kernel"));
+				.constructObject(Config.getString("Kernel.kernel"));//choose kernal via nachos.conf
 		kernel.initialize(args);
 
 		run();
