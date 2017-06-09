@@ -118,27 +118,9 @@ public class UserKernel extends ThreadedKernel {
 		super.terminate();
 	}
 	
-	//allocate physical page to user process
-	//@return the ppn of the allocated physical page or -1 if in error
-	public static int allocate() {
-		pageLock.acquire();
-		if(freePages.isEmpty()) {
-			return -1;
-		}
-		int ppn = freePages.removeFirst();
-		pageLock.release();
-		return ppn;
-	}
-	
-	public static void deallocate(int ppn) {
-		pageLock.acquire();
-		freePages.add(new Integer(ppn));
-		pageLock.release();
-		return;
-	}
 	
 	//don't initialize here, or will cause problem
-	private static Lock pageLock;	
+	public static Lock pageLock;	
 	
 	/** Globally accessible reference to the synchronized console. */
 	public static SynchConsole console;

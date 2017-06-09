@@ -29,7 +29,6 @@ public class UserProcess {
 		OpenFiles[0] = UserKernel.console.openForReading();
 		OpenFiles[1] = UserKernel.console.openForWriting();
 		
-		int numPhysPages = Machine.processor().getNumPhysPages();
 //		pageTable = new TranslationEntry[numPhysPages];
 //		for (int i = 0; i < numPhysPages; i++)
 //			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
@@ -165,9 +164,12 @@ public class UserProcess {
 			
 			int addrOffset = Processor.offsetFromAddress(vaddr);
 			int paddr = pageTable[vpn].ppn * pageSize + addrOffset;
+
+			
 			int transferAmount = Math.min(Math.min(length, pageSize - addrOffset), data.length - offset);
 			
 			System.arraycopy(memory, paddr, data, offset, transferAmount);
+	
 			
 			vaddr += transferAmount;
 			offset += transferAmount;
@@ -205,7 +207,6 @@ public class UserProcess {
 	public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
-
 		byte[] memory = Machine.processor().getMemory();
 
 		// for now, just assume that virtual addresses equal physical addresses
@@ -232,6 +233,7 @@ public class UserProcess {
 			
 			int addrOffset = Processor.offsetFromAddress(vaddr);
 			int paddr = pageTable[vpn].ppn * pageSize + addrOffset;
+						
 			int transferAmount = Math.min(Math.min(length, pageSize - addrOffset), data.length - offset);
 			
 			System.arraycopy(data, offset, memory, paddr, transferAmount);
@@ -240,6 +242,7 @@ public class UserProcess {
 			offset += transferAmount;
 			amount += transferAmount;
 		}
+		
 		return amount;
 
 	}
@@ -353,12 +356,18 @@ public class UserProcess {
 		//allocate physical pages to current process
 		pageTable = new TranslationEntry[numPages];
 		for (int i = 0; i < numPages; i++) {
-			int ppn = UserKernel.allocate();
-			if(ppn == -1) {
+			int ppn;
+			UserKernel.pageLock.acquire();
+			if(UserKernel.freePages.isEmpty()) {
 				coff.close();
 				Lib.debug(dbgProcess, "\tloadSections: insufficient physical memory");
 				return false;
 			}
+			else {
+				ppn = UserKernel.freePages.removeFirst();
+			}
+			UserKernel.pageLock.release();
+				
 			pageTable[i] = new TranslationEntry(i, ppn, true, false, false, false);
 			
 		}
@@ -395,9 +404,11 @@ public class UserProcess {
 	 * Release any resources allocated by <tt>loadSections()</tt>.
 	 */
 	protected void unloadSections() {
+		UserKernel.pageLock.acquire();
 		for(int i = 0; i < numPages; i++) {
-			UserKernel.deallocate(pageTable[i].ppn);
+			UserKernel.freePages.add(new Integer(pageTable[i].ppn));
 		}
+		UserKernel.pageLock.release();
 	}
 
 	/**
@@ -435,6 +446,7 @@ public class UserProcess {
 	}
 	
 	private void handleExit(int status) {
+		System.out.println("handleexit:"+status);
 		for(int i = 0; i < OpenFiles.length; i++) {
 			if(OpenFiles[i] != null) {
 				OpenFiles[i].close();
@@ -514,9 +526,6 @@ public class UserProcess {
 			Lib.debug(dbgProcess, "handleJoin: no child with this pid");
 			return -1;
 		}
-			
-		//assume one process only has one thread
-		//child.thread.join();
 		
 		//condition variable
 		//if child process exit abnormally, nachos exit then everything break down?
@@ -524,8 +533,6 @@ public class UserProcess {
 		while(!childrenStatus.containsKey(pid)) {
 			sleepCondition.sleep();
 		}
-		sleepLock.release();
-		
 		
 		Integer status = childrenStatus.get(pid);
 		
@@ -539,6 +546,7 @@ public class UserProcess {
 			Lib.debug(dbgProcess, "handleJoin: fail to write child status to virtual memory");
 			return -1;
 		}
+		sleepLock.release();
 		return 1;
 	}
 	
@@ -629,7 +637,6 @@ public class UserProcess {
 		}
 		int bytesTransfer = 0;
 		byte[] dummyBuffer = new byte[pageSize];
-		
 		//break the loop if finish transferring all bytes requested or reach to the end of readfile
 		while(count > 0) {
 			int tryRead = Math.min(pageSize, count);
@@ -652,7 +659,6 @@ public class UserProcess {
 				break;
 			}
 		}
-		
 		return bytesTransfer;
 	}
 	
@@ -833,7 +839,7 @@ public class UserProcess {
 	 */
 	public void handleException(int cause) {
 		Processor processor = Machine.processor();
-
+		
 		switch (cause) {
 		case Processor.exceptionSyscall:
 			int result = handleSyscall(processor.readRegister(Processor.regV0),
@@ -867,13 +873,13 @@ public class UserProcess {
 
 	protected OpenFile[] OpenFiles;
 	
-	private static int pidCounter = 0;
+	protected static int pidCounter = 0;
 	
-	private static int runningProcess = 0;
+	protected static int runningProcess = 0;
 	
-	private int pid;
+	protected int pid;
 	
-	private UserProcess parent = null;
+	protected UserProcess parent = null;
 	
 	private LinkedList<UserProcess> childrenList = new LinkedList<UserProcess>();
 	
@@ -893,5 +899,6 @@ public class UserProcess {
 	private Lock sleepLock;
 	
 	private Condition sleepCondition;
+	
 	
 }
