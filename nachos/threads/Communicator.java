@@ -1,3 +1,7 @@
+// This class implemented synchronous send and receive of one word messages using condition variables.
+// Simple and efficient
+
+
 package nachos.threads;
 
 import nachos.machine.*;
